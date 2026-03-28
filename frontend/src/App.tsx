@@ -259,7 +259,7 @@ export default function App() {
 
       if (!data.matchId) {
         setMatchmaking(false)
-        setError('Failed to join queue. Try again.')
+        setError('RPC response: ' + JSON.stringify(data))
         return
       }
 
