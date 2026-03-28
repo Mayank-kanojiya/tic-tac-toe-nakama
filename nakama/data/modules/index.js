@@ -151,7 +151,17 @@ function matchJoin(ctx, logger, nk, dispatcher, tick, state, presences) {
   for (var i = 0; i < presences.length; i++) {
     var p = presences[i];
     state.players[p.userId] = p;
-    state.names[p.userId] = p.displayName || p.username || p.userId;
+    var displayName = p.displayName || p.username || p.userId;
+    // Try to get display name from account if not in presence
+    if (!p.displayName) {
+      try {
+        var accounts = nk.usersGetId([p.userId]);
+        if (accounts && accounts.length > 0 && accounts[0].displayName) {
+          displayName = accounts[0].displayName;
+        }
+      } catch (e) {}
+    }
+    state.names[p.userId] = displayName;
     if (!state.scores[p.userId]) state.scores[p.userId] = 0;
   }
   var ids = Object.keys(state.players);
