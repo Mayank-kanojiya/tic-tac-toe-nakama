@@ -23,6 +23,11 @@ jobs:
 
       - name: Build frontend
         working-directory: ./frontend
+        env:
+          VITE_NAKAMA_HOST: 13.233.150.166
+          VITE_NAKAMA_PORT: 7350
+          VITE_NAKAMA_SERVER_KEY: defaultkey
+          VITE_NAKAMA_USE_SSL: 'false'
         run: |
           pnpm install
           pnpm run build
