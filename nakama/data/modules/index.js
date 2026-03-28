@@ -46,6 +46,8 @@ function rpcQuickMatch(ctx, logger, nk, payload) {
 
     logger.info('Quick match request from: ' + userId + ' (' + userName + ')');
 
+    logger.info('Queue size before: ' + queueStore.players.length);
+
     // Remove stale entries (older than 60s) and self
     for (var i = queueStore.players.length - 1; i >= 0; i--) {
       var e = queueStore.players[i];
@@ -53,6 +55,8 @@ function rpcQuickMatch(ctx, logger, nk, payload) {
         queueStore.players.splice(i, 1);
       }
     }
+
+    logger.info('Queue size after cleanup: ' + queueStore.players.length);
 
     // Someone is waiting — match them
     if (queueStore.players.length > 0) {
