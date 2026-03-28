@@ -46,20 +46,18 @@ function rpcQuickMatch(ctx, logger, nk, payload) {
 
     logger.info('Quick match request from: ' + userId + ' (' + userName + ')');
 
-    // Remove stale entries (older than 60s) and self
-    var fresh = [];
-    for (var i = 0; i < quickMatchQueue.length; i++) {
+    // Remove stale entries (older than 60s) and self — mutate in place
+    for (var i = quickMatchQueue.length - 1; i >= 0; i--) {
       var e = quickMatchQueue[i];
-      if (e.userId !== userId && (now - e.joinedAt) < 60000) {
-        fresh.push(e);
+      if (!e || e.userId === userId || (now - e.joinedAt) >= 60000) {
+        quickMatchQueue.splice(i, 1);
       }
     }
-    quickMatchQueue = fresh;
 
     // Someone is waiting — match them
     if (quickMatchQueue.length > 0) {
       var opponent = quickMatchQueue[0];
-      quickMatchQueue = quickMatchQueue.slice(1);
+      quickMatchQueue.splice(0, 1);
       var matchId = opponent.matchId;
       logger.info('Matched ' + opponent.userId + ' vs ' + userId + ' matchId=' + matchId);
       return JSON.stringify({ matched: true, matchId: matchId });
