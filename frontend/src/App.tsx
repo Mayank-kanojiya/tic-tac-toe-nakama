@@ -257,14 +257,17 @@ export default function App() {
       const res = await conn.client.rpc(conn.session, 'quick_match', { name: username || 'Player', mode })
       const data = parseRpcPayload(res)
 
-      if (data.matchId) {
-        // Both matched and queued cases return a matchId — join it immediately
-        await doJoinMatch(data.matchId)
+      if (!data.matchId) {
         setMatchmaking(false)
-      } else {
-        setMatchmaking(false)
-        setError('No opponent found. Try again later.')
+        setError('Failed to join queue. Try again.')
+        return
       }
+
+      // Join the match immediately (works for both queued and matched cases)
+      // If queued: we join and wait in 'waiting' status until opponent joins
+      // If matched: opponent already created the match, we join and game starts
+      await doJoinMatch(data.matchId)
+      setMatchmaking(false)
     } catch (e: any) {
       setMatchmaking(false)
       setError(e?.message ?? String(e))
