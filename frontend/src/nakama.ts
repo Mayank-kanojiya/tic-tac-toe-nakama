@@ -36,7 +36,7 @@ export async function connectNakama(username: string): Promise<NakamaConnection>
   const session = await client.authenticateDevice(deviceId, true, username);
 
   // Always update the display name in case it changed
-  await client.updateAccount(session, { displayName: username, username: username });
+  await client.updateAccount(session, { display_name: username, username: username });
 
   const socket = client.createSocket(NAKAMA_USE_SSL, false);
   await socket.connect(session, true);
