@@ -404,17 +404,11 @@ export default function App() {
               <div className="matchmaking-box">
                 <div className="matchmaking-spinner" />
                 <span>Finding opponent…</span>
-                <div style={{ fontSize: '12px', color: '#888', marginTop: '8px' }}>
-                  ⏳ Waiting: {qmStats.queueWaiting} | 👥 Playing: {qmStats.activePlayers}
-                </div>
                 <button className="button secondary" onClick={cancelQuickMatch}>Cancel</button>
               </div>
             ) : (
               <div>
                 <button className="button full" onClick={startQuickMatch}>⚡ Quick Match</button>
-                <div style={{ fontSize: '12px', color: '#666', marginTop: '6px', textAlign: 'center' }}>
-                  ⏳ Queue: {qmStats.queueWaiting} | 👥 Playing: {qmStats.activePlayers}
-                </div>
               </div>
             )}
 
