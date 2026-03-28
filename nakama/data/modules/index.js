@@ -32,9 +32,8 @@ function rpcGetLeaderboard(ctx, logger, nk, payload) {
   }
 }
 
-// Quick match queue storage using Nakama storage
-var QUICK_MATCH_COLLECTION = 'quick_match_queue'
-var QUICK_MATCH_KEY = 'queue'
+// Quick match queue - in-memory (lives as long as Nakama process)
+var quickMatchQueue = [];
 
 // RPC: Quick match - join queue and match if possible
 function rpcQuickMatch(ctx, logger, nk, payload) {
@@ -47,81 +46,29 @@ function rpcQuickMatch(ctx, logger, nk, payload) {
 
     logger.info('Quick match request from: ' + userId + ' (' + userName + ')');
 
-    // Read current queue from storage
-    var queueData = { players: [] };
-    try {
-      var reads = nk.storageRead([{
-        collection: QUICK_MATCH_COLLECTION,
-        key: QUICK_MATCH_KEY,
-        userId: '00000000-0000-0000-0000-000000000000'
-      }]);
-      if (reads && reads.length > 0) {
-        queueData = reads[0].value;
-      }
-    } catch (e) {
-      logger.warn('Queue read error: ' + String(e));
-    }
-
-    if (!queueData || !queueData.players) queueData = { players: [] };
-
-    // Remove stale entries (older than 60s) and self (prevent duplicate)
-    var freshPlayers = [];
-    for (var fi = 0; fi < queueData.players.length; fi++) {
-      var entry = queueData.players[fi];
-      if (entry && entry.userId && entry.userId !== userId && (now - entry.joinedAt) < 60000) {
-        freshPlayers.push(entry);
+    // Remove stale entries (older than 60s) and self
+    var fresh = [];
+    for (var i = 0; i < quickMatchQueue.length; i++) {
+      var e = quickMatchQueue[i];
+      if (e.userId !== userId && (now - e.joinedAt) < 60000) {
+        fresh.push(e);
       }
     }
-    queueData.players = freshPlayers;
+    quickMatchQueue = fresh;
 
-    // Check if someone is waiting
-    if (queueData.players.length > 0) {
-      var opponent = queueData.players[0];
-      queueData.players = queueData.players.slice(1);
-
-      // The first player already created the match — reuse it
+    // Someone is waiting — match them
+    if (quickMatchQueue.length > 0) {
+      var opponent = quickMatchQueue[0];
+      quickMatchQueue = quickMatchQueue.slice(1);
       var matchId = opponent.matchId;
-      if (!matchId) {
-        matchId = nk.matchCreate('ttt_match', { mode: mode });
-      }
-
-      // Save updated queue
-      try {
-        nk.storageWrite([{
-          collection: QUICK_MATCH_COLLECTION,
-          key: QUICK_MATCH_KEY,
-          userId: '00000000-0000-0000-0000-000000000000',
-          value: queueData,
-          permissionRead: 0,
-          permissionWrite: 0
-        }]);
-      } catch (e) {
-        logger.warn('Queue write error: ' + String(e));
-      }
-
-      logger.info('Match found! ' + opponent.userId + ' vs ' + userId + ' matchId=' + matchId);
+      logger.info('Matched ' + opponent.userId + ' vs ' + userId + ' matchId=' + matchId);
       return JSON.stringify({ matched: true, matchId: matchId });
     }
 
-    // No one waiting — create a match and add self to queue
+    // No one waiting — create match and queue self
     var newMatchId = nk.matchCreate('ttt_match', { mode: mode });
-    queueData.players.push({ userId: userId, name: userName, joinedAt: now, matchId: newMatchId });
-
-    try {
-      nk.storageWrite([{
-          collection: QUICK_MATCH_COLLECTION,
-          key: QUICK_MATCH_KEY,
-          userId: '00000000-0000-0000-0000-000000000000',
-          value: queueData,
-          permissionRead: 0,
-          permissionWrite: 0
-      }]);
-    } catch (e) {
-      logger.error('Queue storage error: ' + String(e));
-      return JSON.stringify({ error: String(e), matched: false });
-    }
-
-    logger.info('Added to queue with matchId=' + newMatchId);
+    quickMatchQueue.push({ userId: userId, name: userName, joinedAt: now, matchId: newMatchId });
+    logger.info('Queued ' + userId + ' with matchId=' + newMatchId + ' queueSize=' + quickMatchQueue.length);
     return JSON.stringify({ matched: false, queued: true, matchId: newMatchId });
   } catch (e) {
     logger.error('rpcQuickMatch error: ' + String(e));
@@ -562,45 +509,19 @@ function matchmakerMatched(ctx, logger, nk, matches) {
 // RPC: Get quick match stats
 function rpcGetQuickMatchStats(ctx, logger, nk, payload) {
   try {
-    // Get queue data
-    var queueSize = 0;
-    try {
-      var reads = nk.storageRead([{ 
-        collection: QUICK_MATCH_COLLECTION, 
-        key: QUICK_MATCH_KEY, 
-        userId: '00000000-0000-0000-0000-000000000000'
-      }]);
-      if (reads && reads.length > 0) {
-        var queueData = reads[0].value;
-        queueSize = (queueData && queueData.players && queueData.players.length) || 0;
-      }
-    } catch (e) {
-      logger.warn('Queue read error: ' + String(e));
-    }
-    
-    // Get active matches and count players in them
     var matchesResult = nk.matchList(100, true, null, null, null, null);
     var matches = (matchesResult && matchesResult.matches) ? matchesResult.matches : [];
     var activePlayers = 0;
-    
-    // Count all players currently in any match
     for (var i = 0; i < matches.length; i++) {
-      var match = matches[i];
-      if (match.presences) {
-        activePlayers += match.presences.length;
-      }
+      if (matches[i].presences) activePlayers += matches[i].presences.length;
     }
-    
-    logger.info('Stats: queueSize=' + queueSize + ', matches=' + matches.length + ', activePlayers=' + activePlayers);
-    
     return JSON.stringify({
-      queueWaiting: queueSize,
+      queueWaiting: quickMatchQueue.length,
       activePlayers: activePlayers,
       activeMatches: matches.length
     });
   } catch (e) {
-    logger.error('Stats error: ' + String(e));
-    return JSON.stringify({ error: String(e), queueWaiting: 0, activePlayers: 0, activeMatches: 0 });
+    return JSON.stringify({ queueWaiting: 0, activePlayers: 0, activeMatches: 0 });
   }
 }
 
