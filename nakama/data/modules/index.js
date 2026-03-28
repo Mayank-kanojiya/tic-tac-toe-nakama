@@ -42,34 +42,46 @@ function rpcQuickMatch(ctx, logger, nk, payload) {
     var p = parsePayload(nk, payload);
     var userId = ctx.userId;
     var userName = p.name || 'Player';
-    
+    var mode = p.mode || 'classic';
+    var now = Date.now();
+
     logger.info('Quick match request from: ' + userId + ' (' + userName + ')');
-    
+
     // Read current queue from storage
-    var queueData = null;
+    var queueData = { players: [] };
+    var version = undefined;
     try {
-      var reads = nk.storageRead([{ 
-        collection: QUICK_MATCH_COLLECTION, 
-        key: QUICK_MATCH_KEY, 
+      var reads = nk.storageRead([{
+        collection: QUICK_MATCH_COLLECTION,
+        key: QUICK_MATCH_KEY,
         userId: ''
       }]);
       if (reads && reads.length > 0) {
         queueData = JSON.parse(reads[0].value);
+        version = reads[0].version;
       }
     } catch (e) {
       logger.warn('Queue read error: ' + String(e));
     }
-    
-    if (!queueData) {
-      queueData = { players: [] };
-    }
-    
-    // Check if someone is waiting in queue
-    if (queueData.players && queueData.players.length > 0) {
+
+    if (!queueData.players) queueData.players = [];
+
+    // Remove stale entries (older than 60s) and self (prevent duplicate)
+    queueData.players = queueData.players.filter(function(entry) {
+      return entry.userId !== userId && (now - entry.joinedAt) < 60000;
+    });
+
+    // Check if someone is waiting
+    if (queueData.players.length > 0) {
       var opponent = queueData.players.shift();
-      logger.info('Match found! ' + opponent.userId + ' (' + opponent.name + ') vs ' + userId + ' (' + userName + ')');
-      
-      // Update queue storage
+
+      // The first player already created the match — reuse it
+      var matchId = opponent.matchId;
+      if (!matchId) {
+        matchId = nk.matchCreate('ttt_match', { mode: mode });
+      }
+
+      // Save updated queue
       try {
         nk.storageWrite([{
           collection: QUICK_MATCH_COLLECTION,
@@ -82,44 +94,31 @@ function rpcQuickMatch(ctx, logger, nk, payload) {
       } catch (e) {
         logger.warn('Queue write error: ' + String(e));
       }
-      
-      // Create match with both players
-      var matchId = nk.matchCreate('ttt_match', { mode: 'timed' });
-      logger.info('Match created: ' + matchId);
-      
-      return JSON.stringify({
-        matched: true,
-        matchId: matchId,
-        opponent: { id: opponent.userId, name: opponent.name }
-      });
-    } else {
-      // Add current player to queue
-      queueData.players.push({ userId: userId, name: userName, joinedAt: Date.now() });
-      
-      // Save to storage
-      try {
-        nk.storageWrite([{
-          collection: QUICK_MATCH_COLLECTION,
-          key: QUICK_MATCH_KEY,
-          userId: '',
-          value: JSON.stringify(queueData),
-          permissionRead: 0,
-          permissionWrite: 0
-        }]);
-      } catch (e) {
-        logger.error('Queue storage error: ' + String(e));
-        return JSON.stringify({ error: String(e), matched: false });
-      }
-      
-      logger.info('Added to queue. Queue size: ' + queueData.players.length);
-      
-      return JSON.stringify({
-        matched: false,
-        queued: true,
-        queueSize: queueData.players.length,
-        message: 'Waiting for opponent...'
-      });
+
+      logger.info('Match found! ' + opponent.userId + ' vs ' + userId + ' matchId=' + matchId);
+      return JSON.stringify({ matched: true, matchId: matchId });
     }
+
+    // No one waiting — create a match and add self to queue
+    var newMatchId = nk.matchCreate('ttt_match', { mode: mode });
+    queueData.players.push({ userId: userId, name: userName, joinedAt: now, matchId: newMatchId });
+
+    try {
+      nk.storageWrite([{
+        collection: QUICK_MATCH_COLLECTION,
+        key: QUICK_MATCH_KEY,
+        userId: '',
+        value: JSON.stringify(queueData),
+        permissionRead: 0,
+        permissionWrite: 0
+      }]);
+    } catch (e) {
+      logger.error('Queue storage error: ' + String(e));
+      return JSON.stringify({ error: String(e), matched: false });
+    }
+
+    logger.info('Added to queue with matchId=' + newMatchId);
+    return JSON.stringify({ matched: false, queued: true, matchId: newMatchId });
   } catch (e) {
     logger.error('rpcQuickMatch error: ' + String(e));
     return JSON.stringify({ error: String(e), matched: false });

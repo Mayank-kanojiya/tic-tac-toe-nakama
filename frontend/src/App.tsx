@@ -252,33 +252,23 @@ export default function App() {
   async function startQuickMatch() {
     if (!conn || matchmaking) return; setError(null)
     setMatchmaking(true)
-    
-    const tryMatch = async (attempt: number = 1) => {
-      try {
-        const res = await conn!.client.rpc(conn!.session, 'quick_match', { name: username || 'Player' })
-        const data = parseRpcPayload(res)
-        
-        if (data.matched && data.matchId) {
-          // Matched! Join the match
-          await doJoinMatch(data.matchId)
-          setMatchmaking(false)
-        } else if (attempt < 15) {
-          // Not matched yet - retry after 2 seconds (handles race conditions with concurrent joins)
-          mmTimeoutRef.current = setTimeout(() => {
-            tryMatch(attempt + 1)
-          }, 2000)
-        } else {
-          // Give up after 15 retries (30 seconds total)
-          setMatchmaking(false)
-          setError('No opponent found. Try again later.')
-        }
-      } catch (e: any) {
+
+    try {
+      const res = await conn.client.rpc(conn.session, 'quick_match', { name: username || 'Player', mode })
+      const data = parseRpcPayload(res)
+
+      if (data.matchId) {
+        // Both matched and queued cases return a matchId — join it immediately
+        await doJoinMatch(data.matchId)
         setMatchmaking(false)
-        setError(e?.message ?? String(e))
+      } else {
+        setMatchmaking(false)
+        setError('No opponent found. Try again later.')
       }
+    } catch (e: any) {
+      setMatchmaking(false)
+      setError(e?.message ?? String(e))
     }
-    
-    tryMatch()
   }
 
   async function cancelQuickMatch() {
