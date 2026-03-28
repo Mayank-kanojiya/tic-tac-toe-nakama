@@ -11,27 +11,6 @@ jobs:
     steps:
       - uses: actions/checkout@v3
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '20'
-
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 8
-
-      - name: Build frontend
-        working-directory: ./frontend
-        env:
-          VITE_NAKAMA_HOST: 13.233.150.166
-          VITE_NAKAMA_PORT: 7350
-          VITE_NAKAMA_SERVER_KEY: defaultkey
-          VITE_NAKAMA_USE_SSL: 'false'
-        run: |
-          pnpm install
-          pnpm run build
-
       - name: Deploy to EC2
         uses: appleboy/ssh-action@master
         with:
@@ -39,10 +18,8 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           port: 22
-          script_stop: true
           script: |
             cd /home/ubuntu/tic-tac-toe-nakama
             git pull origin main
-            docker-compose down
-            docker-compose up -d
+            sudo docker-compose restart nakama
             echo "Deployment complete!"
