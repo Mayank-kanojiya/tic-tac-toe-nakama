@@ -84,9 +84,6 @@ export default function App() {
   const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
   const [showLeaderboard, setShowLeaderboard] = useState(false)
 
-  // Quick Match Stats
-  const [qmStats, setQmStats] = useState<{ queueWaiting: number; activePlayers: number }>({ queueWaiting: 0, activePlayers: 0 })
-
   const [mode, setMode] = useState<'classic' | 'timed'>('timed')
   const [botDifficulty, setBotDifficulty] = useState<'easy' | 'medium' | 'hard'>('hard')
 
@@ -202,14 +199,6 @@ export default function App() {
     return () => window.clearInterval(id)
   }, [])
 
-  // Fetch quick match stats every 2 seconds
-  useEffect(() => {
-    if (!conn) return
-    const interval = setInterval(fetchQuickMatchStats, 2000)
-    fetchQuickMatchStats() // Fetch immediately
-    return () => clearInterval(interval)
-  }, [conn])
-
   // ── Actions ───────────────────────────────────────────────────────────────────
   async function handleConnect() {
     setError(null); setConnecting(true)
@@ -281,22 +270,6 @@ export default function App() {
     }
     mmTicketRef.current = null
     setMatchmaking(false)
-  }
-
-  async function fetchQuickMatchStats() {
-    if (!conn) return
-    try {
-      const res = await conn.client.rpc(conn.session, 'get_quick_match_stats', {})
-      const data = parseRpcPayload(res)
-      if (data.queueWaiting !== undefined) {
-        setQmStats({
-          queueWaiting: data.queueWaiting || 0,
-          activePlayers: data.activePlayers || 0
-        })
-      }
-    } catch (e: any) {
-      console.warn('Stats fetch error:', e)
-    }
   }
 
   async function sendMove(index: number) {
