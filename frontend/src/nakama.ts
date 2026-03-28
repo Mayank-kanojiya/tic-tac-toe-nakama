@@ -33,9 +33,9 @@ export async function connectNakama(username: string): Promise<NakamaConnection>
   const client = new Client(NAKAMA_SERVER_KEY, NAKAMA_HOST, NAKAMA_PORT, NAKAMA_USE_SSL);
 
   const deviceId = getOrCreateDeviceId();
-  const session = await client.authenticateDevice(deviceId, true, username);
+  const session = await client.authenticateDevice(deviceId, true);
 
-  // Update display name silently (ignore errors — username may be taken)
+  // Update display name silently (ignore errors)
   try { await client.updateAccount(session, { display_name: username }); } catch {}
 
   const socket = client.createSocket(NAKAMA_USE_SSL, false);
