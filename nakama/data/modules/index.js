@@ -62,16 +62,22 @@ function rpcQuickMatch(ctx, logger, nk, payload) {
       logger.warn('Queue read error: ' + String(e));
     }
 
-    if (!queueData.players) queueData.players = [];
+    if (!queueData || !queueData.players) queueData = { players: [] };
 
     // Remove stale entries (older than 60s) and self (prevent duplicate)
-    queueData.players = queueData.players.filter(function(entry) {
-      return entry.userId !== userId && (now - entry.joinedAt) < 60000;
-    });
+    var freshPlayers = [];
+    for (var fi = 0; fi < queueData.players.length; fi++) {
+      var entry = queueData.players[fi];
+      if (entry && entry.userId && entry.userId !== userId && (now - entry.joinedAt) < 60000) {
+        freshPlayers.push(entry);
+      }
+    }
+    queueData.players = freshPlayers;
 
     // Check if someone is waiting
     if (queueData.players.length > 0) {
-      var opponent = queueData.players.shift();
+      var opponent = queueData.players[0];
+      queueData.players = queueData.players.slice(1);
 
       // The first player already created the match — reuse it
       var matchId = opponent.matchId;
