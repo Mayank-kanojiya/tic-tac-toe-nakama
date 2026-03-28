@@ -1,0 +1,18 @@
+# Node
+node_modules/
+.pnpm-store/
+
+# Vite/React
+frontend/dist/
+frontend/.vite/
+
+# Env
+.env
+.env.*
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

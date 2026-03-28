@@ -1,0 +1,45 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: ttt-postgres
+    environment:
+      POSTGRES_DB: nakama
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d nakama"]
+      interval: 2s
+      timeout: 5s
+      retries: 30
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  nakama:
+    image: heroiclabs/nakama:3.22.0
+    container_name: ttt-nakama
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: unless-stopped
+    entrypoint:
+      - /bin/sh
+      - -ec
+      - |
+        /nakama/nakama migrate up --database.address postgres:postgres@postgres:5432/nakama && \
+        exec /nakama/nakama \
+          --name nakama \
+          --database.address postgres:postgres@postgres:5432/nakama \
+          --logger.level DEBUG \
+          --session.token_expiry_sec 7200 \
+          --runtime.path /nakama/data/modules
+    ports:
+      - "7350:7350" # HTTP
+      - "7351:7351" # gRPC
+    volumes:
+      - ./nakama/data:/nakama/data
+
+volumes:
+  postgres_data:
