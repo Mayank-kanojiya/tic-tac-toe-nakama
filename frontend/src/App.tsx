@@ -468,6 +468,7 @@ export default function App() {
             </div>
 
             <div className="match-id-small">Match: {joinedMatchId}</div>
+            <button className="button secondary full" style={{ marginTop: '8px' }} onClick={sendExit}>Exit to Lobby</button>
           </div>
         )}
 
