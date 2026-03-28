@@ -56,7 +56,7 @@ function rpcQuickMatch(ctx, logger, nk, payload) {
         userId: '00000000-0000-0000-0000-000000000000'
       }]);
       if (reads && reads.length > 0) {
-        queueData = JSON.parse(reads[0].value);
+        queueData = reads[0].value;
       }
     } catch (e) {
       logger.warn('Queue read error: ' + String(e));
@@ -85,7 +85,7 @@ function rpcQuickMatch(ctx, logger, nk, payload) {
           collection: QUICK_MATCH_COLLECTION,
           key: QUICK_MATCH_KEY,
           userId: '00000000-0000-0000-0000-000000000000',
-          value: JSON.stringify(queueData),
+          value: queueData,
           permissionRead: 0,
           permissionWrite: 0
         }]);
@@ -106,7 +106,7 @@ function rpcQuickMatch(ctx, logger, nk, payload) {
           collection: QUICK_MATCH_COLLECTION,
           key: QUICK_MATCH_KEY,
           userId: '00000000-0000-0000-0000-000000000000',
-          value: JSON.stringify(queueData),
+          value: queueData,
           permissionRead: 0,
           permissionWrite: 0
       }]);
@@ -565,7 +565,7 @@ function rpcGetQuickMatchStats(ctx, logger, nk, payload) {
         userId: '00000000-0000-0000-0000-000000000000'
       }]);
       if (reads && reads.length > 0) {
-        var queueData = JSON.parse(reads[0].value);
+        var queueData = reads[0].value;
         queueSize = (queueData && queueData.players && queueData.players.length) || 0;
       }
     } catch (e) {
