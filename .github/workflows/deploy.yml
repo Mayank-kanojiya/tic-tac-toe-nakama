@@ -38,6 +38,8 @@ jobs:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
+          port: 22
+          script_stop: true
           script: |
             cd /home/ubuntu/tic-tac-toe-nakama
             git pull origin main
